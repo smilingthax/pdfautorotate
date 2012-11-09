@@ -1,0 +1,37 @@
+Auto-rotate filter for cups 
+---------------------------
+
+Applications might expect that mixed-orientation pdfs print correctly.
+As cups, and especially OS X (e.g. when using a remote print queue on OS X via IPP), 
+expects print-jobs to have homogenous orientations, this filter normalizes them
+(also taking 'landscape'/'orientation-requested' into account).
+
+The filter can be controlled by the "pdfAutoRotate" option. 
+The current default (might change in the future) is enabled. 
+E.g. setting 'pdfAutoRotate=off' will disable it.
+
+Unfortunately I don't know enought about the cups filter chain creation process 
+to say, how it can be included there.
+A few thing have to be considered, though: 
+* The filter has to be run even when a remote queue is used.
+* All print dialogs should provide a way to switch off the 'pdfAutoRotate'-option,
+  as the user might want to resolve the print data to media size mismatch differenty,
+  e.g. by using 'fit-to-page'.
+
+In the future the pdftopdf filter from cups-filters (>1.0.18) could be extended
+to handles the auto-rotation internally, saving one temporary file. 
+BUT this filter still has to be used in all filter chains where a such extended
+pdftopdf is not run (but e.g. cgpdftopdf from OS X). 
+
+For example some pdftoXY-filters might be called without pdftopdf in front of them
+('PDF-job > cgpdftops > pstops > ...' on OS X comes to mind).
+
+Don't expect to be safe, just because your local setup always calls a "good"
+pdftopdf, as the IPP printing protocol can forward unfiltered 
+(or partially filtered) jobs (together with the options set for the job)
+when printing to remote queues, and the local pdftopdf is skipped. 
+In this cases pdfautorotate MUST be called locally for autorotation 
+to work. Note that some pdftopdf might still be called, so we can't run the 
+full pdftopdf (or: the options corresponding to the now already applied filters 
+[like number-up] have to be removed, otherwise the remote end will apply them
+again).

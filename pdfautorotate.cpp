@@ -157,7 +157,7 @@ void processOptions(int num_options,cups_option_t *options,Params &param) // {{{
   }
 
   if ( (val=cupsGetOption("pdfAutoRotate",num_options,options)) != NULL) {
-    param.autoRotate=is_false(val);
+    param.autoRotate=!is_false(val);
   }
 }
 // }}}
