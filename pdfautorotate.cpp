@@ -196,7 +196,7 @@ void processPDF(QPDF &pdf,Params &param) // {{{
       const bool src_lscape=( (width<height)==isLandscape(src_rot) );
 
       if (src_lscape!=dst_lscape) {
-        Rotation rotation=ROT_90;
+        Rotation rotation=param.normal_landscape; // ROT_90;
         // TODO? other rotation direction, e.g. if (src_rot==ROT_0)&&(param.orientation==ROT_270) ... etc.
         // rotation=ROT_270;
 
