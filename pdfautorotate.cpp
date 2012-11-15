@@ -7,8 +7,9 @@
 #include <qpdf/QPDFWriter.hh>
 //#include <qpdf/QUtil.hh>
 
-#include <cups/cups.h>
 #include <assert.h>
+#include <cups/cups.h>
+#include <cups/ppd.h>
 
 #include <stdarg.h>
 static void error(const char *fmt,...) // {{{
@@ -92,12 +93,14 @@ QPDFObjectHandle makeRotate(Rotation rot) // {{{
 
 struct Params {
   Params()
-    : normal_landscape(ROT_90),
+    : normal_landscape(ROT_270),
       orientation(ROT_0),
+      paper_is_landscape(false),
       autoRotate(true)
   {}
 
   Rotation normal_landscape,orientation;
+  bool paper_is_landscape;
   bool autoRotate;
 };
 
@@ -126,17 +129,23 @@ static bool optGetInt(const char *name,int num_options,cups_option_t *options,in
 
 // FIXME? normal_landscape not derived from PPD
 // parse options, look for "pdfAutoRotate" key, also check landscape/orientation_requested
-void processOptions(int num_options,cups_option_t *options,Params &param) // {{{
+void processOptions(ppd_file_t *ppd,int num_options,cups_option_t *options,Params &param) // {{{
 {
   const char *val;
 
-#if 0
   if ( (ppd)&&(ppd->landscape>0) ) { // direction the printer rotates landscape (90 or -90)
     param.normal_landscape=ROT_90;
   } else {
     param.normal_landscape=ROT_270;
   }
-#endif
+
+  ppd_size_t *pagesize;
+  param.paper_is_landscape=false;
+  if ( (pagesize=ppdPageSize(ppd,0)) != NULL) { // "already rotated"
+    if (pagesize->width>pagesize->length) {
+      param.paper_is_landscape=true;
+    }
+  }
 
   int ipprot;
   param.orientation=ROT_0;
@@ -173,7 +182,7 @@ void processPDF(QPDF &pdf,Params &param) // {{{
   const std::vector<QPDFObjectHandle> &pages=pdf.getAllPages();
   const int len=pages.size();
 
-  const bool dst_lscape=isLandscape(param.orientation); // this assumes that all possible ppd media-sizes are 'portrait'
+  const bool dst_lscape=( param.paper_is_landscape!=isLandscape(param.orientation) );
 
   for (int iA=0;iA<len;iA++) {
     QPDFObjectHandle page=pages[iA];
@@ -274,7 +283,14 @@ int main(int argc,char **argv)
     cups_option_t *options=NULL;
     num_options=cupsParseOptions(argv[5],num_options,&options);
 
-    processOptions(num_options,options,param);
+    // don't forget the ppd
+    ppd_file_t *ppd=NULL;
+    ppd=ppdOpenFile(getenv("PPD")); // getenv (and thus ppd) may be null. This will not cause problems.
+    ppdMarkDefaults(ppd);
+    cupsMarkOptions(ppd,num_options,options);
+
+    processOptions(ppd,num_options,options,param);
+
     cupsFreeOptions(num_options,options);
 
     // apply processing
